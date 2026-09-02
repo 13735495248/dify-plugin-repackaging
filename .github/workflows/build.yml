@@ -52,35 +52,47 @@ jobs:
       - name: Make plugin_repackaging.sh executable
         run: chmod +x ./plugin_repackaging.sh
 
-            # ✅ 修正版：调试步骤 - 验证 gevent 26.5.0 wheel 可用性
-      - name: Debug - Check gevent 26.5.0 wheel availability
+            # ✅ 终极调试：通过 PyPI API 验证 gevent 26.5.0 wheel
+      - name: Debug - Check gevent 26.5.0 wheel via PyPI API
         run: |
           echo "=========================================="
-          echo "Debugging gevent 26.5.0 availability"
-          echo "Platform: ${{ env.PIP_PLATFORM }}"
-          echo "Python: 3.12"
+          echo "Checking gevent 26.5.0 for: ${{ env.PIP_PLATFORM }} / cp312"
           echo "=========================================="
           
-          python3 -m pip install --upgrade pip
+          # 使用 PyPI JSON API 获取 26.5.0 的所有文件列表
+          RESPONSE=$(curl -sL https://pypi.org/pypi/gevent/26.5.0/json)
           
-          echo ""
-          echo "Attempting to download gevent==26.5.0 wheel..."
-          # ✅ 关键修复：添加 --no-deps，跨平台下载时必须禁止依赖解析
-          if python3 -m pip download \
-              gevent==26.5.0 \
-              --platform ${{ env.PIP_PLATFORM }} \
-              --python-version 312 \
-              --only-binary=:all: \
-              --no-deps \
-              -d /tmp/debug-wheels \
-              --index-url https://pypi.org/simple; then
-            echo "✅ SUCCESS: gevent 26.5.0 wheel is available for this platform"
-            ls -la /tmp/debug-wheels/
-          else
-            echo "❌ FAILED: gevent 26.5.0 has NO compatible wheel for ${{ env.PIP_PLATFORM }}"
+          # 检查是否存在 manylinux x86_64 + cp312 的 wheel
+          MATCH=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          files = data.get('urls', [])
+          target_platform = '${{ env.PIP_PLATFORM }}'
+          found = []
+          for f in files:
+              fn = f.get('filename', '')
+              # 匹配 cp312 + manylinux x86_64 的 wheel
+              if 'cp312' in fn and 'manylinux' in fn and 'x86_64' in fn and fn.endswith('.whl'):
+                  found.append(fn)
+          if found:
+              print('WHEELS_FOUND')
+              for w in found:
+                  print(f'  - {w}')
+          else:
+              print('NO_WHEEL')
+              print('All available files for 26.5.0:')
+              for f in files:
+                  print(f'  - {f[\"filename\"]}')
+          ")
+          
+          echo "$MATCH"
+          
+          if echo "$MATCH" | grep -q "WHEELS_FOUND"; then
             echo ""
-            echo "Available versions on PyPI:"
-            python3 -m pip index versions gevent || true
+            echo "✅ gevent 26.5.0 HAS compatible wheels"
+          else
+            echo ""
+            echo "❌ gevent 26.5.0 has NO compatible wheel for cp312 + manylinux x86_64"
           fi
 
      
