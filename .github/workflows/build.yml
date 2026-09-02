@@ -52,7 +52,7 @@ jobs:
       - name: Make plugin_repackaging.sh executable
         run: chmod +x ./plugin_repackaging.sh
 
-      # ✅ 新增：调试步骤 - 验证 gevent 26.5.0 wheel 可用性
+            # ✅ 修正版：调试步骤 - 验证 gevent 26.5.0 wheel 可用性
       - name: Debug - Check gevent 26.5.0 wheel availability
         run: |
           echo "=========================================="
@@ -61,17 +61,17 @@ jobs:
           echo "Python: 3.12"
           echo "=========================================="
           
-          # 升级 pip 确保支持最新 wheel 标签
           python3 -m pip install --upgrade pip
           
-          # 尝试仅下载 wheel（不允许源码构建），模拟脚本行为
           echo ""
           echo "Attempting to download gevent==26.5.0 wheel..."
+          # ✅ 关键修复：添加 --no-deps，跨平台下载时必须禁止依赖解析
           if python3 -m pip download \
               gevent==26.5.0 \
               --platform ${{ env.PIP_PLATFORM }} \
               --python-version 312 \
               --only-binary=:all: \
+              --no-deps \
               -d /tmp/debug-wheels \
               --index-url https://pypi.org/simple; then
             echo "✅ SUCCESS: gevent 26.5.0 wheel is available for this platform"
@@ -82,6 +82,8 @@ jobs:
             echo "Available versions on PyPI:"
             python3 -m pip index versions gevent || true
           fi
+
+     
 
       - name: Run plugin repackaging script
         run: |
