@@ -324,12 +324,16 @@ PY
     	# ============================================
 	# Step 2.5: Dependency compatibility fixes
 	# ============================================
+    	# ============================================
+	# Step 2.5: Dependency compatibility fixes
+	# ============================================
 	echo ""
 	echo "=========================================="
 	echo "Step 2.5: Applying dependency compatibility fixes"
 	echo "=========================================="
 	if [ -f "requirements.txt" ]; then
-		# ✅ 新增：记录 pydantic-core 原始版本（loosening 前）
+		# ✅ 记录 pydantic 生态原始版本（loosening 前）
+		PYDANTIC_VERSION=$(grep -oP 'pydantic==\K[0-9.]+' requirements.txt || true)
 		PYDANTIC_CORE_VERSION=$(grep -oP 'pydantic-core==\K[0-9.]+' requirements.txt || true)
 		
 		# 全局 loosening
@@ -342,7 +346,11 @@ PY
 			sed -i 's/dify-plugin>=0\.9\.0/dify-plugin==0.9.0/g' requirements.txt
 		fi
 		
-		# ✅ 关键：恢复 pydantic-core 精确版本（pydantic 生态严禁版本漂移）
+		# ✅ 关键：恢复 pydantic 生态精确版本对（编译级绑定，严禁漂移）
+		if [ -n "$PYDANTIC_VERSION" ]; then
+			echo "🔒 Re-pinning pydantic to ==${PYDANTIC_VERSION}"
+			sed -i "s/pydantic>=${PYDANTIC_VERSION}/pydantic==${PYDANTIC_VERSION}/g" requirements.txt
+		fi
 		if [ -n "$PYDANTIC_CORE_VERSION" ]; then
 			echo "🔒 Re-pinning pydantic-core to ==${PYDANTIC_CORE_VERSION}"
 			sed -i "s/pydantic-core>=${PYDANTIC_CORE_VERSION}/pydantic-core==${PYDANTIC_CORE_VERSION}/g" requirements.txt
@@ -353,6 +361,8 @@ PY
 		echo "⚠ requirements.txt not found, skipping"
 	fi
 
+
+	
 
 	# ============================================
 	# Step 3: Download Python dependencies as wheels
